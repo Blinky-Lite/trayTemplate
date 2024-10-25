@@ -146,7 +146,6 @@
         "y": 540,
         "wires": [
             [
-                "e0e078fb21bf41f0",
                 "a452a2f3b9d521c0"
             ]
         ]
@@ -329,8 +328,8 @@
         "type": "function",
         "z": "4a5a8ec8ddc999ab",
         "name": "Create Setting",
-        "func": "let two31Minus1 = 2147483647;\nlet clkFreq = 125e6;\nlet blinkyBusSettingMsg = \n{\n    topic : msg.topic, \n    payload : [] \n}\nlet modeMsg = null;\nlet modeSurveyMsg = null;\nlet blinkyBusMessage = false;\nlet normalSettingMsg = null;\nlet trayControlMessage = null;\nlet tray = flow.get('tray');\nif (tray == null) return [blinkyBusSettingMsg,normalSettingMsg,trayControlMessage,modeMsg, modeSurveyMsg];\nif (tray[msg.payload.cube].hasOwnProperty('enabled'))\n{\n    if (tray[msg.payload.cube].enabled == 0)\n    {\n        return [null, null, null,null];\n    }\n}\nlet setValue = 0;\nlet cosAmp = 0;\nlet sinAmp = 0;\nlet regOut01 = 0;\nlet regOut02 = 0;\nlet regOut03 = 0;\nlet regOut04 = 0;\nlet regOut07 = 0;\n\nswitch (msg.payload.cube) \n{\n    case 'reset':\n        setValue = msg.payload.value;\n        blinkyBusSettingMsg.payload.push({\"command\":\"setting\",\"value\":setValue,\"offset\":64});\n        blinkyBusMessage = true;\n        break;\n    case 'frequency':\n        let phase_inc = 2 * msg.payload.value / clkFreq;\n        regOut01 = Math.floor( phase_inc * two31Minus1);;\n        blinkyBusSettingMsg.payload.push({\"command\":\"setting\",\"value\":regOut01,\"offset\":68});\n        blinkyBusMessage = true;\n        break;\n    case 'phase':\n        cosAmp = Math.cos(msg.payload.value * Math.PI / 180.0);\n        sinAmp = Math.sin(msg.payload.value * Math.PI / 180.0);\n        regOut03 = Math.floor(-cosAmp * two31Minus1);\n        regOut04 = Math.floor( sinAmp * two31Minus1);\n        blinkyBusSettingMsg.payload.push({\"command\":\"setting\",\"value\":regOut03,\"offset\":76});\n        blinkyBusSettingMsg.payload.push({\"command\":\"setting\",\"value\":regOut04,\"offset\":80});\n        blinkyBusMessage = true;\n        break;\n    case 'offsetBwD':\n        let regOut05 = Math.floor(Math.log(clkFreq / msg.payload.value) / Math.log(2));\n        blinkyBusSettingMsg.payload.push({\"command\":\"setting\",\"value\":regOut05,\"offset\":84});\n        blinkyBusMessage = true;\n        tray.offsetBwA.value = clkFreq / (2**regOut05);\n        break;\n    case 'resBwD':\n        let regOut06 = Math.floor(Math.log(clkFreq / msg.payload.value) / Math.log(2));\n        blinkyBusSettingMsg.payload.push({\"command\":\"setting\",\"value\":regOut06,\"offset\":88});\n        blinkyBusMessage = true;\n        tray.resBwA.value = clkFreq / (2**regOut06);\n        break;\n    case 'fbOn':\n        regOut07 = Math.floor( tray.fbGain.value * msg.payload.value * two31Minus1);\n        blinkyBusSettingMsg.payload.push({\"command\":\"setting\",\"value\":regOut07,\"offset\":92});\n        blinkyBusMessage = true;\n        break;\n    case 'fbGain':\n        regOut07 = Math.floor( msg.payload.value * tray.fbOn.value * two31Minus1);\n        blinkyBusSettingMsg.payload.push({\"command\":\"setting\",\"value\":regOut07,\"offset\":92});\n        blinkyBusMessage = true;\n        break;\n    case 'inputBwD':\n        let regOut08 = Math.floor(Math.log(clkFreq / msg.payload.value) / Math.log(2));\n        blinkyBusSettingMsg.payload.push({\"command\":\"setting\",\"value\":regOut08,\"offset\":96});\n        blinkyBusMessage = true;\n        tray.inputBwA.value = clkFreq / (2**regOut08);\n        break;\n    case 'amplitude':\n        let regOut09 = Math.floor(msg.payload.value * two31Minus1);\n        blinkyBusSettingMsg.payload.push({\"command\":\"setting\",\"value\":regOut09,\"offset\":100});\n        blinkyBusMessage = true;\n        break;\n    case 'alias':\n        tray.alias.value = msg.payload.value;\n        blinkyBusMessage = false;\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    case 'mode':\n        tray.mode.value = msg.payload.value;\n        blinkyBusMessage = false;\n        normalSettingMsg = { topic: 'newData', payload: true };\n        modeMsg = { topic: 'mode', payload: tray.mode.value }\n       break;\n    case 'modeSurvey':\n        tray.modeSurvey.value = msg.payload.value;\n        blinkyBusMessage = false;\n        normalSettingMsg = { topic: 'newData', payload: true };\n        modeSurveyMsg = { topic: 'modeSurveySetting', payload: tray.modeSurvey.value }\n       break;\n    case 'trayControl':\n        blinkyBusMessage = false;\n        switch(msg.payload.value)\n        {\n            case 0:\n                tray.trayControl.value = 0;\n                flow.set('settingInProgress', false);\n                break;\n            case 1:\n                tray.trayControl.value = -1;\n                flow.set('settingInProgress', true);\n                break;\n            case 2:\n                if (tray.trayControl.value > 0)\n                {\n                    tray.trayControl.value = 2;\n                    flow.set('settingInProgress', true);\n                    let trayProps  = flow.get('trayProps');\n                    trayControlMessage =\n                    {\n                        topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/echo',\n                        payload: JSON.stringify({ topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/setting/echo' })\n                    };\n                }\n                break;\n            default:\n                tray.trayControl.value = 0;\n                break;\n        }\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    default:\n        break;\n}\nif (blinkyBusMessage)\n{\n    tray[msg.payload.cube].value  = msg.payload.value;\n    flow.set('settingInProgress', true);\n    flow.set('settingMessageCount', blinkyBusSettingMsg.payload.length);\n}\nreturn [blinkyBusSettingMsg,normalSettingMsg,trayControlMessage,modeMsg, modeSurveyMsg];\n\n\n\n",
-        "outputs": 5,
+        "func": "let blinkyBusSettingMsg = \n{\n    topic : msg.topic, \n    payload : [] \n}\nlet blinkyBusMessage = false;\nlet normalSettingMsg = null;\nlet trayControlMessage = null;\nlet tray = flow.get('tray');\nif (tray == null) return [blinkyBusSettingMsg,normalSettingMsg,trayControlMessage];\nif (tray[msg.payload.cube].hasOwnProperty('enabled'))\n{\n    if (tray[msg.payload.cube].enabled == 0)\n    {\n        return [null, null, null];\n    }\n}\n\nswitch (msg.payload.cube) \n{\n    case 'alias':\n        tray.alias.value = msg.payload.value;\n        blinkyBusMessage = false;\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    case 'trayControl':\n        blinkyBusMessage = false;\n        switch(msg.payload.value)\n        {\n            case 0:\n                tray.trayControl.value = 0;\n                flow.set('settingInProgress', false);\n                break;\n            case 1:\n                tray.trayControl.value = -1;\n                flow.set('settingInProgress', true);\n                break;\n            case 2:\n                if (tray.trayControl.value > 0)\n                {\n                    tray.trayControl.value = 2;\n                    flow.set('settingInProgress', true);\n                    let trayProps  = flow.get('trayProps');\n                    trayControlMessage =\n                    {\n                        topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/echo',\n                        payload: JSON.stringify({ topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/setting/echo' })\n                    };\n                }\n                break;\n            default:\n                tray.trayControl.value = 0;\n                break;\n        }\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    default:\n        break;\n}\nif (blinkyBusMessage)\n{\n}\nreturn [blinkyBusSettingMsg,normalSettingMsg,trayControlMessage];\n\n\n\n",
+        "outputs": 3,
         "timeout": "",
         "noerr": 0,
         "initialize": "",
@@ -339,20 +338,12 @@
         "x": 900,
         "y": 300,
         "wires": [
-            [
-                "9557f4148465dc19"
-            ],
+            [],
             [
                 "dd6bd003f8621dc3"
             ],
             [
                 "5126a47142c6b136"
-            ],
-            [
-                "0e6ec67bce8228e5"
-            ],
-            [
-                "111f556b4c781724"
             ]
         ]
     },
@@ -584,19 +575,6 @@
         ]
     },
     {
-        "id": "3cbcb621cb818ee0",
-        "type": "link out",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "load tray config out",
-        "mode": "link",
-        "links": [
-            "667c2c5d7f705954"
-        ],
-        "x": 2505,
-        "y": 680,
-        "wires": []
-    },
-    {
         "id": "667c2c5d7f705954",
         "type": "link in",
         "z": "4a5a8ec8ddc999ab",
@@ -691,7 +669,7 @@
         "payload": "",
         "payloadType": "date",
         "x": 200,
-        "y": 1020,
+        "y": 840,
         "wires": [
             [
                 "7a2ba09675f33687"
@@ -710,7 +688,7 @@
         "finalize": "",
         "libs": [],
         "x": 410,
-        "y": 1020,
+        "y": 840,
         "wires": [
             [
                 "548139d24e399cb6"
@@ -729,7 +707,7 @@
         "finalize": "",
         "libs": [],
         "x": 420,
-        "y": 1080,
+        "y": 900,
         "wires": [
             [
                 "548139d24e399cb6"
@@ -751,7 +729,7 @@
         "expiry": "",
         "broker": "79250bf3.365cc4",
         "x": 800,
-        "y": 1020,
+        "y": 840,
         "wires": []
     },
     {
@@ -766,7 +744,7 @@
         "finalize": "",
         "libs": [],
         "x": 630,
-        "y": 1020,
+        "y": 840,
         "wires": [
             [
                 "fd29a0b325275e3d"
@@ -774,199 +752,19 @@
         ]
     },
     {
-        "id": "fe87f8d4f4d7e0b1",
-        "type": "link in",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Canvas Settings In",
-        "links": [
-            "46579bc816c2e12c",
-            "97d1bf83713d277e",
-            "64378c7bbd67ece6",
-            "09b74d9db6221475"
-        ],
-        "x": 115,
-        "y": 900,
-        "wires": [
-            [
-                "48adaa828fec20b3"
-            ]
-        ]
-    },
-    {
-        "id": "d937dba7c2f7cfba",
-        "type": "link out",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Setting Success Out",
-        "mode": "link",
-        "links": [
-            "35592760638b8bfa"
-        ],
-        "x": 1495,
-        "y": 860,
-        "wires": []
-    },
-    {
-        "id": "bb94231d824cab70",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Setting success",
-        "func": "let tray = flow.get('tray');\ncalcReadings();\nlet settingSuccess = true;\nreturn {topic:\"settingSuccess\",payload:settingSuccess};\nfunction calcReadings()\n{\n}\nfunction twoToN(n)\n{\n    let pow = 1;\n    for (let ii = 0; ii < n; ++ii) pow = pow * 2;\n    return pow;\n}\n",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1140,
-        "y": 860,
-        "wires": [
-            [
-                "d937dba7c2f7cfba"
-            ]
-        ]
-    },
-    {
-        "id": "48adaa828fec20b3",
-        "type": "pythonshell in",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "PYNQ Interface",
-        "pyfile": "zynqInterface.py",
-        "virtualenv": "",
-        "continuous": true,
-        "stdInData": true,
-        "x": 260,
-        "y": 900,
-        "wires": [
-            [
-                "607354d81a21483d"
-            ]
-        ]
-    },
-    {
-        "id": "0823b1b2f706201d",
-        "type": "switch",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "",
-        "property": "payload.command",
-        "propertyType": "msg",
-        "rules": [
-            {
-                "t": "eq",
-                "v": "setting",
-                "vt": "str"
-            },
-            {
-                "t": "eq",
-                "v": "reading",
-                "vt": "str"
-            }
-        ],
-        "checkall": "true",
-        "repair": false,
-        "outputs": 2,
-        "x": 930,
-        "y": 900,
-        "wires": [
-            [
-                "bb94231d824cab70"
-            ],
-            [
-                "1e03a1443a23e648"
-            ]
-        ]
-    },
-    {
-        "id": "917e929089a40143",
-        "type": "json",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "",
-        "property": "payload",
-        "action": "obj",
-        "pretty": false,
-        "x": 570,
-        "y": 900,
-        "wires": [
-            [
-                "0823b1b2f706201d"
-            ]
-        ]
-    },
-    {
-        "id": "207adedb566c3160",
-        "type": "inject",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "readWatchDog",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "$(POLLINTERVAL)",
-        "crontab": "",
-        "once": true,
-        "onceDelay": "5",
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 200,
-        "y": 840,
-        "wires": [
-            [
-                "63eb4712a4cb5128"
-            ]
-        ]
-    },
-    {
-        "id": "63eb4712a4cb5128",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Setup readings",
-        "func": "let tray = flow.get('tray');\nif (flow.get('settingInProgress')) return null;\nlet readingsArray = [];\nfor (let ii = 0; ii < 3; ++ii)\n{\n    readingsArray.push({\"command\":\"reading\",\"offset\":(ii * 4)});\n}\nreturn {topic: \"readWatchDog\", payload:readingsArray};\n\n",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 400,
-        "y": 840,
-        "wires": [
-            [
-                "709acbe3ae3c82d9"
-            ]
-        ]
-    },
-    {
-        "id": "97d1bf83713d277e",
-        "type": "link out",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "WatchDog Read In",
-        "mode": "link",
-        "links": [
-            "fe87f8d4f4d7e0b1"
-        ],
-        "x": 845,
-        "y": 840,
-        "wires": []
-    },
-    {
         "id": "1e03a1443a23e648",
         "type": "function",
         "z": "4a5a8ec8ddc999ab",
         "name": "Parse Reading",
-        "func": "let readingSuccess = true;\nlet tray = flow.get('tray');\n\nswitch(msg.payload.offset)\n{\n    case 0:\n        tray.watchdog.value = msg.payload.value;\n        break;\n    case 4:\n        tray.iOverlap.value = -normRead(msg.payload.value);\n        calcMagnitude();\n        break;\n    case 8:\n        tray.qOverlap.value = normRead(msg.payload.value);\n        calcMagnitude();\n        break;\n    default:\n        break;\n}\nreturn {topic:\"readingSuccess\",payload:readingSuccess};\nfunction normRead(pynqInt)\n{\n    let normVal = pynqInt;\n    let two31Minus1 = 2147483647;\n    let two31 = 2147483648;\n    let two32 = 4294967296;\n    normVal = pynqInt;\n    if (pynqInt >= two31) normVal = pynqInt - two32;\n    normVal = normVal / two31Minus1;   \n    return normVal;\n}\nfunction calcMagnitude()\n{\n    tray.inputAmp.value = Math.sqrt(tray.iOverlap.value * tray.iOverlap.value + tray.qOverlap.value * tray.qOverlap.value);\n    tray.inputPhase.value = 180.0 * Math.atan2(tray.qOverlap.value, tray.iOverlap.value) / Math.PI;\n    tray.inputPhase.value = tray.inputPhase.value + tray.phase.value;\n    if (tray.inputPhase.value >  180.0) tray.inputPhase.value = tray.inputPhase.value - 360.0;\n    if (tray.inputPhase.value < -180.0) tray.inputPhase.value = tray.inputPhase.value + 360.0;\n}",
+        "func": "let readingSuccess = true;\nlet tray = flow.get('tray');\n\nreturn {topic:\"readingSuccess\",payload:readingSuccess};\n",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
         "initialize": "// Code added here will be run once\n// whenever the node is started.\ncontext.set(\"ival\", 0.000001);\ncontext.set(\"qval\", 0.000001);",
         "finalize": "",
         "libs": [],
-        "x": 1140,
-        "y": 900,
+        "x": 340,
+        "y": 700,
         "wires": [
             [
                 "a64d31f1f50e0f29"
@@ -982,8 +780,8 @@
         "links": [
             "35592760638b8bfa"
         ],
-        "x": 1495,
-        "y": 900,
+        "x": 735,
+        "y": 700,
         "wires": []
     },
     {
@@ -995,7 +793,7 @@
             "46579bc816c2e12c"
         ],
         "x": 115,
-        "y": 1080,
+        "y": 900,
         "wires": [
             [
                 "70408babd151d134"
@@ -1020,7 +818,7 @@
         "allowrate": false,
         "outputs": 1,
         "x": 230,
-        "y": 1080,
+        "y": 900,
         "wires": [
             [
                 "6f4cf8163e17e475"
@@ -1038,365 +836,11 @@
         "initialize": "// Code added here will be run once\n// whenever the node is started.\ncontext.set('lastAlarm', -1);",
         "finalize": "",
         "libs": [],
-        "x": 1360,
-        "y": 900,
+        "x": 600,
+        "y": 700,
         "wires": [
             [
                 "825424632004f63e"
-            ]
-        ]
-    },
-    {
-        "id": "607354d81a21483d",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Remove CR",
-        "func": "msg.payload = msg.payload.split(\"\\n\")[0];\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 430,
-        "y": 900,
-        "wires": [
-            [
-                "917e929089a40143"
-            ]
-        ]
-    },
-    {
-        "id": "709acbe3ae3c82d9",
-        "type": "split",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "",
-        "splt": "\\n",
-        "spltType": "str",
-        "arraySplt": 1,
-        "arraySpltType": "len",
-        "stream": false,
-        "addname": "",
-        "x": 550,
-        "y": 840,
-        "wires": [
-            [
-                "177235eb42188efc"
-            ]
-        ]
-    },
-    {
-        "id": "46579bc816c2e12c",
-        "type": "link out",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Tray Setting In",
-        "mode": "link",
-        "links": [
-            "e9a01e5bc2f140ef",
-            "ae68c32974081996",
-            "fe87f8d4f4d7e0b1",
-            "8bf3047428f12691"
-        ],
-        "x": 1815,
-        "y": 240,
-        "wires": []
-    },
-    {
-        "id": "dc24ae9c20720ca9",
-        "type": "split",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "",
-        "splt": "\\n",
-        "spltType": "str",
-        "arraySplt": 1,
-        "arraySpltType": "len",
-        "stream": false,
-        "addname": "",
-        "x": 1350,
-        "y": 260,
-        "wires": [
-            [
-                "512a55973417c5fc"
-            ]
-        ]
-    },
-    {
-        "id": "e0e078fb21bf41f0",
-        "type": "delay",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Delay Poll Interval",
-        "pauseType": "delay",
-        "timeout": "$(POLLINTERVAL)",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "1",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 1170,
-        "y": 620,
-        "wires": [
-            [
-                "877e9ecebbd3a3ad",
-                "b3b088e79f81e17d"
-            ]
-        ]
-    },
-    {
-        "id": "64378c7bbd67ece6",
-        "type": "link out",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Init tray",
-        "mode": "link",
-        "links": [
-            "fe87f8d4f4d7e0b1"
-        ],
-        "x": 2075,
-        "y": 600,
-        "wires": []
-    },
-    {
-        "id": "877e9ecebbd3a3ad",
-        "type": "delay",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "",
-        "pauseType": "delay",
-        "timeout": "15",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "1",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 1300,
-        "y": 680,
-        "wires": [
-            [
-                "335d71f2571c9da2"
-            ]
-        ]
-    },
-    {
-        "id": "335d71f2571c9da2",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "initSettings",
-        "func": "let tray = flow.get('tray');\nlet settingsArray = [];\nlet two31Minus1 = 2147483647;\nlet clkFreq = 125e6;\ntray.amplitude.value = 0;\n\ntray.reset.value = 1;\nlet phase_off = tray.phase.value / 180.0;\nlet phase_inc = 2 * tray.frequency.value / clkFreq;\nlet cosAmp = Math.cos(tray.phase.value * Math.PI / 180.0);\nlet sinAmp = Math.sin(tray.phase.value * Math.PI / 180.0);\nlet phaseDetLPFShift = Math.floor(Math.log(clkFreq / tray.resBwD.value) / Math.log(2));\ntray.resBwA.value = clkFreq / (2**phaseDetLPFShift);\nlet inputNotchLPFShift = Math.floor(Math.log(clkFreq / tray.offsetBwD.value) / Math.log(2));\ntray.offsetBwA.value = clkFreq / (2**inputNotchLPFShift);\nlet inputLPFShift = Math.floor(Math.log(clkFreq / tray.inputBwD.value) / Math.log(2));\ntray.inputBwA.value = clkFreq / (2**inputLPFShift);\n\nlet regOut01 = Math.floor( phase_inc * two31Minus1);\nlet regOut02 = Math.floor( phase_off  * two31Minus1);\nlet regOut03 = Math.floor(-cosAmp * two31Minus1);\nlet regOut04 = Math.floor( sinAmp * two31Minus1);\nlet regOut05 = inputNotchLPFShift;\nlet regOut06 = phaseDetLPFShift;\nlet regOut07 = Math.floor( tray.fbGain.value * tray.fbOn.value * two31Minus1); \nlet regOut08 = inputLPFShift;\nlet regOut09 = Math.floor(tray.amplitude.value * two31Minus1);\n\nlet setReg = [];\n\nsetReg.push(tray.reset.value);\n\nsetReg.push(regOut01);\nsetReg.push(regOut02);\nsetReg.push(regOut03);\nsetReg.push(regOut04);\nsetReg.push(regOut05);\nsetReg.push(regOut06);\nsetReg.push(regOut07);\nsetReg.push(regOut08);\nsetReg.push(regOut09);\n\nfor (let ii = 0; ii < setReg.length; ++ii)\n{\n    settingsArray.push({\"command\":\"setting\",\"value\":setReg[ii],\"offset\":(64 + ii * 4)});\n}\ntray.reset.value = 0;\nsettingsArray.push({\"command\":\"setting\",\"value\":tray.reset.value,\"offset\":64});\nflow.set('settingMessageCount', settingsArray.length);\n\nreturn {topic:\"initSettings\",payload:settingsArray};\n\n",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1450,
-        "y": 680,
-        "wires": [
-            [
-                "9c389318e2c2e80b"
-            ]
-        ]
-    },
-    {
-        "id": "9c389318e2c2e80b",
-        "type": "split",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "",
-        "splt": "\\n",
-        "spltType": "str",
-        "arraySplt": 1,
-        "arraySpltType": "len",
-        "stream": false,
-        "addname": "",
-        "x": 1600,
-        "y": 620,
-        "wires": [
-            [
-                "727d4270b96e9f62"
-            ]
-        ]
-    },
-    {
-        "id": "727d4270b96e9f62",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Dec Setting Count",
-        "func": "flow.set('settingMessageCount', flow.get('settingMessageCount') - 1);\nlet endMsg = null;\nif (flow.get('settingMessageCount') < 1) endMsg = {topic:'lastSetting', payload:true};\nreturn [msg,endMsg];",
-        "outputs": 2,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1930,
-        "y": 620,
-        "wires": [
-            [
-                "64378c7bbd67ece6"
-            ],
-            [
-                "5344c5c19a1e1c85"
-            ]
-        ]
-    },
-    {
-        "id": "5344c5c19a1e1c85",
-        "type": "delay",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Delay Poll Interval",
-        "pauseType": "delay",
-        "timeout": "$(POLLINTERVAL)",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "1",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 2150,
-        "y": 680,
-        "wires": [
-            [
-                "fefa50cae29305a5"
-            ]
-        ]
-    },
-    {
-        "id": "fefa50cae29305a5",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Resume Readings",
-        "func": "let tray = flow.get('tray');\nflow.set('settingInProgress', false);\ntray.trayControl.value = 0;\nlet newMsg1 = {topic: 'setting', payload:{'cube':'trayControl', value:tray.trayControl.value}};\nreturn newMsg1;",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 2370,
-        "y": 680,
-        "wires": [
-            [
-                "3cbcb621cb818ee0"
-            ]
-        ]
-    },
-    {
-        "id": "9557f4148465dc19",
-        "type": "delay",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Delay Poll Interval",
-        "pauseType": "delay",
-        "timeout": "$(POLLINTERVAL)",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "1",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 1190,
-        "y": 260,
-        "wires": [
-            [
-                "dc24ae9c20720ca9"
-            ]
-        ]
-    },
-    {
-        "id": "512a55973417c5fc",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Dec Setting Count",
-        "func": "flow.set('settingMessageCount', flow.get('settingMessageCount') - 1);\nlet endMsg = null;\nif (flow.get('settingMessageCount') < 1) endMsg = {topic:'lastSetting', payload:true};\nreturn [msg,endMsg];",
-        "outputs": 2,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1690,
-        "y": 260,
-        "wires": [
-            [
-                "46579bc816c2e12c"
-            ],
-            [
-                "c7b462855c5d0b27"
-            ]
-        ]
-    },
-    {
-        "id": "c7b462855c5d0b27",
-        "type": "delay",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Delay Poll Interval",
-        "pauseType": "delay",
-        "timeout": "$(POLLINTERVAL)",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "1",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 1890,
-        "y": 280,
-        "wires": [
-            [
-                "fd4d8647219a8a78"
-            ]
-        ]
-    },
-    {
-        "id": "fd4d8647219a8a78",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Resume Readings",
-        "func": "flow.set('settingInProgress', false);\nreturn null;",
-        "outputs": 0,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 2110,
-        "y": 280,
-        "wires": []
-    },
-    {
-        "id": "b3b088e79f81e17d",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Load Overlay at init",
-        "func": "if (!flow.get('deviceInit'))\n{\n    return null;\n}\nflow.set('settingMessageCount', 2);\nflow.set('deviceInit',false);\nreturn msg;",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1410,
-        "y": 620,
-        "wires": [
-            [
-                "9c389318e2c2e80b"
             ]
         ]
     },
@@ -1411,320 +855,6 @@
         ],
         "x": 1115,
         "y": 540,
-        "wires": []
-    },
-    {
-        "id": "177235eb42188efc",
-        "type": "delay",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "",
-        "pauseType": "rate",
-        "timeout": "5",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "0.3",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 710,
-        "y": 840,
-        "wires": [
-            [
-                "97d1bf83713d277e"
-            ]
-        ]
-    },
-    {
-        "id": "a464172e497889a3",
-        "type": "inject",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "mode",
-        "payload": "1",
-        "payloadType": "num",
-        "x": 1230,
-        "y": 1140,
-        "wires": [
-            [
-                "c1b7ce547df18222"
-            ]
-        ]
-    },
-    {
-        "id": "c1b7ce547df18222",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Set Mode Pulse",
-        "func": "let tray = flow.get('tray');\nlet imode = Math.floor(msg.payload);\nif (imode < 0) return null;\nif (imode >= tray.modes.value.length) return null;\n\nlet two31Minus1 = 2147483647;\nlet clkFreq = 125e6;\nlet msgArray = [];\n\nlet mode = tray.modes.value[imode];\n\ntray.amplitude.value = 0;\nlet regOut09 = Math.floor(tray.amplitude.value * two31Minus1);\nmsgArray.push({\"command\":\"setting\",\"value\":regOut09,\"offset\":100});\n\ntray.fbOn.value = 0;\nlet regOut07 = Math.floor( tray.fbGain.value * tray.fbOn.value * two31Minus1);\nmsgArray.push({\"command\":\"setting\",\"value\":regOut07,\"offset\":92});\n\ntray.frequency.value = mode.freq;\nlet phase_inc = 2 * tray.frequency.value / clkFreq;\nlet regOut01 = Math.floor( phase_inc * two31Minus1);\nmsgArray.push({\"command\":\"setting\",\"value\":regOut01,\"offset\":68});\n\ntray.phase.value = mode.phase;\nlet cosAmp = Math.cos(tray.phase.value * Math.PI / 180.0);\nlet sinAmp = Math.sin(tray.phase.value * Math.PI / 180.0);\nlet regOut03 = Math.floor(-cosAmp * two31Minus1);\nlet regOut04 = Math.floor( sinAmp * two31Minus1);\nmsgArray.push({\"command\":\"setting\",\"value\":regOut03,\"offset\":76});\nmsgArray.push({\"command\":\"setting\",\"value\":regOut04,\"offset\":80});\n\ntray.amplitude.value = 0.1;\nregOut09 = Math.floor(tray.amplitude.value * two31Minus1);\nmsgArray.push({\"command\":\"setting\",\"value\":regOut09,\"offset\":100});\n\ntray.fbOn.value = 1;\nregOut07 = Math.floor( tray.fbGain.value * tray.fbOn.value * two31Minus1);\nmsgArray.push({\"command\":\"setting\",\"value\":regOut07,\"offset\":92});\n\ntray.amplitude.value = mode.amplitude;\nregOut09 = Math.floor(tray.amplitude.value * two31Minus1);\nmsgArray.push({\"command\":\"setting\",\"value\":regOut09,\"offset\":100});\n\nlet msgDelay = 300;\nlet numberPolls = Math.ceil(mode.duration * 1000 / msgDelay / 3);\nif (numberPolls < 1) numberPolls = 1;\nfor (let ii = 0; ii < numberPolls; ++ii)\n{\n    for (let ii = 0; ii < 3; ++ii)\n    {\n        msgArray.push({\"command\":\"reading\",\"offset\":(ii * 4)});\n    }\n}\nmsgArray.push({\"command\":\"setting\",\"value\":0,\"offset\":100}); //turn off amplitude\nmsgArray.push({\"command\":\"setting\",\"value\":0,\"offset\":92});  // turn off feedback\n\nflow.set('settingInProgress', true);\ntray.mode.enabled = 0;\nreturn {topic:msg.topic,payload:msgArray,rate:msgDelay};",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1400,
-        "y": 1100,
-        "wires": [
-            [
-                "ef4c470eafeb7364"
-            ]
-        ]
-    },
-    {
-        "id": "ef4c470eafeb7364",
-        "type": "delay",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Delay Poll Interval",
-        "pauseType": "delay",
-        "timeout": "$(POLLINTERVAL)",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "1",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 1610,
-        "y": 1100,
-        "wires": [
-            [
-                "26840c33828ab982"
-            ]
-        ]
-    },
-    {
-        "id": "26840c33828ab982",
-        "type": "split",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "",
-        "splt": "\\n",
-        "spltType": "str",
-        "arraySplt": 1,
-        "arraySpltType": "len",
-        "stream": false,
-        "addname": "",
-        "x": 1770,
-        "y": 1100,
-        "wires": [
-            [
-                "678e76c15b83260b"
-            ]
-        ]
-    },
-    {
-        "id": "678e76c15b83260b",
-        "type": "delay",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Rate Limit",
-        "pauseType": "rate",
-        "timeout": "5",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "0.3",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 1920,
-        "y": 1100,
-        "wires": [
-            [
-                "09b74d9db6221475",
-                "b84a896cdcb24769"
-            ]
-        ]
-    },
-    {
-        "id": "09b74d9db6221475",
-        "type": "link out",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "ModePulse out",
-        "mode": "link",
-        "links": [
-            "fe87f8d4f4d7e0b1"
-        ],
-        "x": 2055,
-        "y": 1040,
-        "wires": []
-    },
-    {
-        "id": "b84a896cdcb24769",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Check for mode pulse end",
-        "func": "if (msg.parts.index < (msg.parts.count - 1)) return null;\nreturn msg;",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 2130,
-        "y": 1120,
-        "wires": [
-            [
-                "66b0ecb2731a19f0"
-            ]
-        ]
-    },
-    {
-        "id": "66b0ecb2731a19f0",
-        "type": "delay",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Delay Poll Interval",
-        "pauseType": "delay",
-        "timeout": "$(POLLINTERVAL)",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "1",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 2390,
-        "y": 1120,
-        "wires": [
-            [
-                "4d463625d0632bbc"
-            ]
-        ]
-    },
-    {
-        "id": "4d463625d0632bbc",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Resume Readings",
-        "func": "let tray = flow.get('tray');\nlet lastMode = tray.mode.value;\ntray.mode.enabled = 1;\ntray.mode.value = -1;\ntray.amplitude.value = 0;\ntray.fbOn.value = 0;\nflow.set('settingInProgress', false);\nreturn {topic:\"lastMode\", payload:lastMode};",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 2610,
-        "y": 1120,
-        "wires": [
-            [
-                "de736a0a310e4fa6"
-            ]
-        ]
-    },
-    {
-        "id": "0e6ec67bce8228e5",
-        "type": "link out",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "modePulse Set Out",
-        "mode": "link",
-        "links": [
-            "d74c91cf456298e6"
-        ],
-        "x": 1115,
-        "y": 380,
-        "wires": []
-    },
-    {
-        "id": "d74c91cf456298e6",
-        "type": "link in",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "modePulse Set In",
-        "links": [
-            "0e6ec67bce8228e5"
-        ],
-        "x": 1255,
-        "y": 1060,
-        "wires": [
-            [
-                "c1b7ce547df18222"
-            ]
-        ]
-    },
-    {
-        "id": "111f556b4c781724",
-        "type": "link out",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "modeSurveySetting out",
-        "mode": "link",
-        "links": [
-            "5691b0ae2f31191f"
-        ],
-        "x": 1115,
-        "y": 420,
-        "wires": []
-    },
-    {
-        "id": "5691b0ae2f31191f",
-        "type": "link in",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "modeSurveySetting In",
-        "links": [
-            "111f556b4c781724",
-            "de736a0a310e4fa6"
-        ],
-        "x": 1275,
-        "y": 1240,
-        "wires": [
-            [
-                "a8b6c4ac5d7e68db"
-            ]
-        ]
-    },
-    {
-        "id": "a8b6c4ac5d7e68db",
-        "type": "function",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "Setup Mode Survey loop",
-        "func": "let tray = flow.get('tray');\nlet playedModeArray = context.get(\"playedModeArray\");\nlet rampSign = context.get(\"rampSign\");\nif (msg.topic == \"modeSurveySetting\")\n{\n    if (msg.payload == 1) rampSign =  1;\n    if (msg.payload == 2) rampSign = -1;\n    context.set(\"rampSign\",rampSign);\n\n    if (tray.mode.value >= 0) return null;\n    if (msg.payload == 1)\n    {\n        tray.mode.value = 0;\n        return { topic: 'mode', payload: tray.mode.value };\n    }\n    if (msg.payload == 2)\n    {\n        tray.mode.value = tray.modes.value.length - 1;\n        return { topic: 'mode', payload: tray.mode.value };\n    }\n    if (msg.payload == 3)\n    {\n        tray.mode.value = getRndInteger(0, tray.modes.value.length);\n        let indy = 0;\n        while (indy >= 0)\n        {\n            indy = playedModeArray.indexOf(tray.mode.value);\n            if (indy >= 0 ) tray.mode.value = getRndInteger(0, tray.modes.value.length);\n        }\n        playedModeArray.push(tray.mode.value);\n        if (playedModeArray.length == tray.modes.value.length)\n        {\n            playedModeArray = [];\n            playedModeArray.push(tray.mode.value);\n        }\n        context.set(\"playedModeArray\", playedModeArray);\n        return { topic: 'mode', payload: tray.mode.value };\n    }\n}\nif (msg.topic == \"lastMode\")\n{\n   if ((tray.modeSurvey.value == 1) || (tray.modeSurvey.value == 2))\n    {\n        tray.mode.value = msg.payload + rampSign;\n        if (tray.mode.value >= tray.modes.value.length) \n        {\n            tray.mode.value = tray.modes.value.length - 2;\n            rampSign = -rampSign;\n            context.set(\"rampSign\", rampSign) ;\n            tray.modeSurvey.value = 2;\n        }\n        if (tray.mode.value < 0) \n        {\n            tray.mode.value = 1;\n            rampSign = -rampSign;\n            context.set(\"rampSign\", rampSign) ;\n            tray.modeSurvey.value = 1;\n        }\n        return { topic: 'mode', payload: tray.mode.value };\n    }\n    if (tray.modeSurvey.value == 3)\n    {\n        tray.mode.value = getRndInteger(0, tray.modes.value.length);\n        let indy = 0;\n        while (indy >= 0)\n        {\n            indy = playedModeArray.indexOf(tray.mode.value);\n            if (indy >= 0 ) tray.mode.value = getRndInteger(0, tray.modes.value.length);\n        }\n        playedModeArray.push(tray.mode.value);\n        if (playedModeArray.length == tray.modes.value.length)\n        {\n            playedModeArray = [];\n            playedModeArray.push(tray.mode.value);\n        }\n        context.set(\"playedModeArray\", playedModeArray);\n        node.warn(playedModeArray);\n        return { topic: 'mode', payload: tray.mode.value };\n    }\n}\nreturn null;\n\n// Min include, max excluded\nfunction getRndInteger(min, max) \n{\n  return Math.floor(Math.random() * (max - min) ) + min;\n}",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "// Code added here will be run once\n// whenever the node is started.\ncontext.set(\"playedModeArray\", []);\ncontext.set(\"rampSign\", 1);",
-        "finalize": "",
-        "libs": [],
-        "x": 1430,
-        "y": 1240,
-        "wires": [
-            [
-                "c1b7ce547df18222"
-            ]
-        ]
-    },
-    {
-        "id": "de736a0a310e4fa6",
-        "type": "link out",
-        "z": "4a5a8ec8ddc999ab",
-        "name": "modeCompleted Out",
-        "mode": "link",
-        "links": [
-            "5691b0ae2f31191f"
-        ],
-        "x": 2745,
-        "y": 1120,
         "wires": []
     }
 ]
